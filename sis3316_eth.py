@@ -6,6 +6,8 @@ from struct import pack, unpack_from, error as struct_error
 from random import randrange
 from functools import wraps
 from settings import *
+from time import sleep
+from settings.common import Sis3316Except
 
 
 def retry_on_timeout(f):
@@ -26,7 +28,7 @@ def retry_on_timeout(f):
     return wrapper
 
 
-class Sis3316:
+class Sis3316(object):
     """ Ethernet implementation of sis3316 UDP-based protocol.
     """
     # Defaults:
@@ -55,14 +57,17 @@ class Sis3316:
     @classmethod
     def __status_err_check(cls, status):
         """ Interpret status field in responce. """
-        if status & 1 << 4:    raise cls._SisNoGrantExcept
-        if status & 1 << 5:    raise cls._SisFifoTimeoutExcept
-        if status & 1 << 6:    raise cls._SisProtocolErrorExcept
+        if status & 1 << 4:
+            raise cls._SisNoGrantExcept
+        if status & 1 << 5:
+            raise cls._SisFifoTimeoutExcept
+        if status & 1 << 6:
+            raise cls._SisProtocolErrorExcept
 
     def check_recv_address(self, recvaddr):  # TODO: (NOTE 1) Check this works
         if self.cnt_wrong_addr < 100:  # Something is really wrong with the function or the ethernet if > 100
             if self.hostname != recvaddr:
-                self.cnt_wrong_addr =+ 1
+                self.cnt_wrong_addr += 1
             else:
                 pass
 
@@ -269,7 +274,7 @@ class Sis3316:
     def _ack_fifo_write(self, timeout=None):
         """ Get a FIFO write acknowledgement. """
 
-        if timeout == None:
+        if timeout is None:
             timeout = self.default_timeout
 
         sock = self._sock
@@ -316,7 +321,7 @@ class Sis3316:
             # Check that a packet is in order and it's status bits are ok.
             hdr = tempbuf[0]
             if hdr != 0x30:
-                raise self._WrongResponceExcept('The packet header is not 0x30')
+                raise self._WrongResponceExcept("The packet header is not 0x30")
 
             stat = tempbuf[1]
             self.__status_err_check(stat)
@@ -334,9 +339,10 @@ class Sis3316:
                                                                                                               best_sz)
             assert bcount % 4 == 0, "data length in packet is not power or 4: %d" % (bcount,)
 
-            dest.push(tempbuf[header_sz_b:packet_sz]) # TODO: This is the readout step
+            # dest.push(tempbuf[header_sz_b:packet_sz])  # TODO: This is the readout step
+            # readout
             if bcount == best_sz:
-                return  # we have got all we need, so not waiting an extra timeout
+                return  # we have got all we need, so not waiting for an extra timeout
         raise self._TimeoutExcept
 
     # ---------------------------
@@ -380,7 +386,7 @@ class Sis3316:
 
             except self._TimeoutExcept:
                 sleep(self.default_timeout)
-                continue  # FIXME: Retry on timeout forever?!
+                continue  # FIXME: When to stop trying?
 
             # Data transmission
             while wfinished < nwords:
@@ -399,15 +405,13 @@ class Sis3316:
                         wcwnd = min(wcwnd_limit, wcwnd + wmtu + (wcwnd - wcwnd_max))
 
                 except self._UnorderedPacketExcept:
-                    # sotffail: some packets accidently was dropped
-                    # ~ print "<< unordered", wcwnd
+                    # soft fail: some packets dropped
                     break
 
                 except self._TimeoutExcept:
-                    # hardfail (network congestion)
+                    # hard fail (network congestion)
                     wcwnd_max = wcwnd
                     wcwnd = wcwnd / 2  # Reduce window by 50%
-                    # ~ print wcwnd, '%0.3f%%'% (1.0 * wfinished/nwords  * 100,) , 'cwnd reduced'
                     break
 
                 finally:  # Note: executes before `break'
@@ -424,7 +428,7 @@ class Sis3316:
         self._fifo_transfer_reset(grp_no)  # cleanup
         return wfinished
 
-    def write_fifo(self, source, grp_no, mem_no, nwords, woffset=0):
+    def write_fifo(self, source, grp_no, mem_no, nwords, woffset=0):  # For the future, but why would we do this?
         pass
 
     # ----------- Exceptions ----------------------
@@ -433,19 +437,19 @@ class Sis3316:
         """ Socket is not empty. """
 
     class _MalformedResponceExcept(Sis3316Except):
-        """ Responce does not match the protocol. """
+        """ Response does not match the protocol. """
 
     class _WrongResponceExcept(Sis3316Except):
-        """ Responce does not match the request. {0}"""
+        """ Response does not match the request. {0}"""
 
     class _UnexpectedResponceLengthExcept(Sis3316Except):
         """ Was waiting for {0} bytes, but received {1}. """
 
     class _UnorderedPacketExcept(Sis3316Except):
-        """ Ack packet not in right order. Probably some packets has been lost. """
+        """ Ack packet not in right order. Probably some packets have been lost. """
 
     class _PacketsLossExcept(Sis3316Except):
-        """ It looks like some packets has been lost. """
+        """ It looks like some packets have been lost. """
 
     class _WrongAddressExcept(Sis3316Except):
         """ Address {0} does not seem to make sense. """
@@ -458,6 +462,9 @@ class Sis3316:
 
     class _SisProtocolErrorExcept(Sis3316Except):
         """ sis3316 Request command packet Except. """
+
+    class _TimeoutExcept(Sis3316Except):
+        """ Responce timeout. Retried {0} times. """
 
 
 # You can run this file as a script (for debug purposes).
