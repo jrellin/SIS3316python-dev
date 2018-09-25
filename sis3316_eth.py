@@ -1,13 +1,15 @@
-import numpy as np
+# import numpy as np#
 import abc
-import socket, select
-import sys
+import socket
+import select
+# import sys
 from struct import pack, unpack_from, error as struct_error
 from random import randrange
 from functools import wraps
 from settings import *
 from time import sleep
-from settings.common import Sis3316Except
+from settings.common import Sis3316Except  # Not required
+import i2c
 
 
 def retry_on_timeout(f):
@@ -28,16 +30,16 @@ def retry_on_timeout(f):
     return wrapper
 
 
-class Sis3316(object):
-    """ Ethernet implementation of sis3316 UDP-based protocol.
+class Sis3316(i2c.Sis3316):
+    """ Ethernet implementation of sis3316 UDP-based protocol. The main functions are in interface and read_fifo
     """
-    # Defaults:
+    # Defaults: TODO: Possibly config?
     default_timeout = 0.1  # seconds
     retry_max_timeout = 100  # ms
     retry_max_count = 10
     jumbo = 4096  # set this to your ethernet's jumbo-frame size
 
-    def __init__(self, host, port=5768):
+    def __init__(self, host, port=5700):
         self.hostname = host
         self.address = (host, port)
         self.cnt_wrong_addr = 0
@@ -89,8 +91,6 @@ class Sis3316(object):
         garbage = select.select([sock], [], [], 0)
         if garbage[0]:
             self.cleanup_socket()
-        # ~ raise self._GarbageInSocketExcept
-
         sock.sendto(msg, self.address)
 
     def _resp_register(self, timeout=None):
@@ -137,9 +137,9 @@ class Sis3316(object):
         """ Read request on VME interface. """
         try:
             if not all(isinstance(item, int) for item in addrlist):
-                raise TypeError("_read_vme accepts a list of integers.")
+                raise TypeError('_read_vme accepts a list of integers.')
         except:
-            raise TypeError("_read_vme accepts a list of integers.")
+            raise TypeError('_read_vme accepts a list of integers.')
 
         num = len(addrlist)
         if num == 0:
@@ -293,8 +293,8 @@ class Sis3316(object):
         """
         Get responce to FIFO read request.
         Args:
-            dest: an object which has a `push(smth)' method and an `index' property.
-            west_sz: estimated count of words in responce (to not to wait an extra timeout in the end).
+            dest: a buffer object which has a `push(smth)' method and an `index' property.
+            west_sz: estimated count of words in response (to not to wait an extra timeout in the end).
         Returns:
             Nothing.
         Raise:
@@ -339,12 +339,54 @@ class Sis3316(object):
                                                                                                               best_sz)
             assert bcount % 4 == 0, "data length in packet is not power or 4: %d" % (bcount,)
 
-            # dest.push(tempbuf[header_sz_b:packet_sz])  # TODO: This is the readout step
-            # readout
+            # readout(tempbuf[header_sz_b:packet_sz])  # TODO: This is where the readout step will be
+
             if bcount == best_sz:
                 return  # we have got all we need, so not waiting for an extra timeout
         raise self._TimeoutExcept
 
+    def _fifo_transfer_read(self, grp_no, mem_no, woffset):
+        """
+        Set up fifo logic for read cmd.
+        Args:
+            grp_no: ADC index: {0,1,2,3}.
+            mem_no: Memory chip index: {0,1}.
+            woffset: Offset (in words).
+        Retiurns:
+            Address to read.
+        Raises:
+            _TransferLogicBusyExcept
+
+        """
+        if grp_no > 3:
+            raise ValueError("grp_no should be 0...3")
+
+        if mem_no != 0 and mem_no != 1:
+            raise ValueError("mem_no is 0 or 1")
+
+        reg_addr = SIS3316_DATA_TRANSFER_GRP_CTRL_REG + 0x4 * grp_no
+
+        #  BITBUSY = 1 << 31
+
+        if self.read(reg_addr) & BITBUSY:
+            raise self._TransferLogicBusyExcept(group=grp_no)
+
+        # Fire "Start Read Transfer" command (FIFO programming)
+        cmd = 0b10 << 30  # Read cmd
+        cmd += woffset  # Start address
+
+        if mem_no == 1:
+            cmd += 1 << 28  # Space select bit
+
+        self.write(reg_addr, cmd)  # Prepare Data transfer logic
+
+    def _fifo_transfer_write(self, grp_no, mem_no, datalist, offset=0):  #  Why would we do this?
+        pass
+
+    def _fifo_transfer_reset(self, grp_no):
+        """ Reset memory transfer logic. """
+        reg = SIS3316_DATA_TRANSFER_GRP_CTRL_REG + 0x4 * grp_no
+        self.write(reg, 0)
     # ---------------------------
 
     def read_fifo(self, dest, grp_no, mem_no, nwords, woffset=0):
@@ -417,7 +459,7 @@ class Sis3316(object):
                 finally:  # Note: executes before `break'
                     bfinished = (dest.index - binitial_index)
                     assert bfinished % 4 == 0, "Should read a four-byte words. %d, init %d" % (
-                    bfinished, binitial_index)
+                        bfinished, binitial_index)
                     wfinished = bfinished / 4
 
             # end while
@@ -466,8 +508,11 @@ class Sis3316(object):
     class _TimeoutExcept(Sis3316Except):
         """ Responce timeout. Retried {0} times. """
 
+    class _TransferLogicBusyExcept(Sis3316Except):
+        """ Data transfer logic for unit #{group} is busy, or you forgot to do _fifo_transfer_reset. """
 
-# You can run this file as a script (for debug purposes).
+
+# You can run this file as a script for debug purposes.
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('host', help='hostname or IP address')

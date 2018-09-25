@@ -13,6 +13,7 @@
       <option name="ignoredErrors">
         <list>
           <option value="N802" />
+          <option value="N801" />
         </list>
       </option>
     </inspection_tool>
@@ -25,6 +26,11 @@
           <option value="sis3316_eth.usleep" />
           <option value="sis3316_eth.VME_WRITE_LIMIT" />
           <option value="sis3316_eth.FIFO_READ_LIMIT" />
+          <option value="sis3316_eth.SIS3316_FPGA_ADC_GRP_MEM_BASE" />
+          <option value="sis3316_eth.SIS3316_FPGA_ADC_GRP_MEM_OFFSET" />
+          <option value="sis3316_eth.Sis3316._TransferLogicBusyExcept" />
+          <option value="sis3316_eth.SIS3316_DATA_TRANSFER_GRP_CTRL_REG" />
+          <option value="sis3316_eth.BITBUSY" />
         </list>
       </option>
     </inspection_tool>
