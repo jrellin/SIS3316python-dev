@@ -142,36 +142,6 @@ class Sis3316(object):
         usleep(10)
 
     @property
-    def leds(self):
-        """ Get LEDs state. Returns 0 if LED is in application mode. """
-        data = self.read(SIS3316_CONTROL_STATUS)
-        status, appmode = get_bits(data, 0, 0b111), get_bits(data, 4, 0b111)
-        return status & ~appmode  # 'on' if appmode[k] is 0 and status[k] is 1
-
-    @leds.setter
-    def leds(self, value):
-        """ Turn LEDs on/off. """
-        if value & ~0b111:
-            raise ValueError("The state value is "
-                             "a binary mask: 0...7 for 3 LEDs."
-                             " '{0}' given.".format(value))
-        self._set_field(SIS3316_CONTROL_STATUS, value, 0, 0b111)
-
-    @property
-    def leds_mode(self):
-        """ Get leds mode: manual/application-specific. """
-        return self._get_field(SIS3316_CONTROL_STATUS, 4, 0b111)
-
-    @leds_mode.setter
-    def leds_mode(self, value):
-        """ Swtich leds mode: manual/application-specific. """
-        if value & ~0b111:
-            raise ValueError("The state value is "
-                             "a binary mask: 0...7 for 3 LEDs."
-                             " '{0}' given.".format(value))
-        self._set_field(SIS3316_CONTROL_STATUS, value, 4, 0b111)
-
-    @property
     def id(self):
         """ Module ID. """
         data = self.read(SIS3316_MODID)
