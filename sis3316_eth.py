@@ -10,6 +10,7 @@ from settings import *
 from time import sleep
 from settings.common import Sis3316Except  # Not required
 import i2c
+import device
 
 
 def retry_on_timeout(f):
@@ -30,7 +31,7 @@ def retry_on_timeout(f):
     return wrapper
 
 
-class Sis3316(i2c.Sis3316):
+class Sis3316(i2c.Sis3316, device.Sis3316):
     """ Ethernet implementation of sis3316 UDP-based protocol. The main functions are in interface and read_fifo
     """
     # Defaults: TODO: Possibly config?
@@ -337,10 +338,8 @@ class Sis3316(i2c.Sis3316):
             assert bcount <= best_sz, \
                 "The length of response on FIFO-read request is %d bytes, but only %d bytes was expected." % (bcount,
                                                                                                               best_sz)
-            assert bcount % 4 == 0, "data length in packet is not power or 4: %d" % (bcount,)
-
-            # readout(tempbuf[header_sz_b:packet_sz])  # TODO: This is where the readout step will be
-
+            assert bcount % 4 == 0, "data length in packet is not power of 4: %d" % (bcount,)
+            dest.push(tempbuf[header_sz_b:packet_sz])  # TODO: Hopefully this works.
             if bcount == best_sz:
                 return  # we have got all we need, so not waiting for an extra timeout
         raise self._TimeoutExcept
@@ -380,7 +379,7 @@ class Sis3316(i2c.Sis3316):
 
         self.write(reg_addr, cmd)  # Prepare Data transfer logic
 
-    def _fifo_transfer_write(self, grp_no, mem_no, datalist, offset=0):  #  Why would we do this?
+    def _fifo_transfer_write(self, grp_no, mem_no, datalist, offset=0):  # Why would we do this?
         pass
 
     def _fifo_transfer_reset(self, grp_no):

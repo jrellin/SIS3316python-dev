@@ -1,6 +1,7 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
+    <inspection_tool class="PyBroadExceptionInspection" enabled="false" level="WEAK WARNING" enabled_by_default="false" />
     <inspection_tool class="PyPep8Inspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
       <option name="ignoredErrors">
         <list>
@@ -14,6 +15,7 @@
         <list>
           <option value="N802" />
           <option value="N801" />
+          <option value="N806" />
         </list>
       </option>
     </inspection_tool>
@@ -31,6 +33,7 @@
           <option value="sis3316_eth.Sis3316._TransferLogicBusyExcept" />
           <option value="sis3316_eth.SIS3316_DATA_TRANSFER_GRP_CTRL_REG" />
           <option value="sis3316_eth.BITBUSY" />
+          <option value="device.Sis3316.i2c_comm" />
         </list>
       </option>
     </inspection_tool>

@@ -11,6 +11,18 @@ def usleep(x):
     sleep(x/1000000.0)
 
 
+def set_bits(int_type, val, offset, mask):
+    ''' Set bit-field with value.'''
+    data = int_type & ~(mask << offset)  # clear
+    data |= (val & mask) << offset  # set
+    return data
+
+
+def get_bits(int_type, offset, mask):
+    ''' Get bit-field value according to mask and offset.'''
+    return (int_type >> offset) & mask
+
+
 class Sis3316Except(Exception):
     def __init__(self, *values, **kwvalues):
         self.values = values
